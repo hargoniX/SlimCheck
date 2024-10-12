@@ -1,0 +1,6 @@
+name = "SlimCheck"
+version = "0.1.0"
+defaultTargets = ["SlimCheck"]
+
+[[lean_lib]]
+name = "SlimCheck"

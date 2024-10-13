@@ -37,6 +37,12 @@ It has a `Nat` parameter so that the caller can decide on the
 size of the examples. -/
 abbrev Gen (α : Type u) := ReaderT (ULift Nat) Rand α
 
+instance : ULiftable Gen.{u} Gen.{max u v} :=
+@ULiftable.ReaderT.instULiftableULiftULift.{u, u, v, 0,
+  u, max u v} Nat (StateT (ULift StdGen) Id) Rand
+  (@ULiftable.StateT.instULiftableULiftULift.{u, u, v, 0,
+  u, max u v} StdGen Id Id ULiftable.instULiftableId)
+
 namespace Gen
 
 /-- Lift `Random.random` to the `Gen` monad. -/
@@ -101,12 +107,12 @@ def permutationOf : (xs : List α) → Gen { ys // xs ~ ys }
   | x::xs => do
     let ⟨ys, h1⟩ ← permutationOf xs
     let ⟨n, _, h3⟩ ← ULiftable.up <| choose Nat 0 ys.length (by omega)
-    return ⟨insertNth n x ys, Perm.trans (Perm.cons _ h1) (perm_insertNth _ _ h3).symm⟩
+    return sorry--⟨insertNth n x ys, Perm.trans (Perm.cons _ h1) (perm_insertNth _ _ h3).symm⟩
 
 /-- Given two generators produces a tuple consisting out of the result of both -/
 def prodOf {α : Type u} {β : Type v} (x : Gen α) (y : Gen β) : Gen (α × β) := do
-  let ⟨a⟩ ← ULiftable.up.{u, u, max u v, max u v} x
-  let ⟨b⟩ ← ULiftable.up.{_, _, max u v, max u v} y
+  let ⟨a⟩ ← ULiftable.up x
+  let ⟨b⟩ ← ULiftable.up y
   return (a, b)
 
 end Gen

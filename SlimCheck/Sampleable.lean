@@ -3,9 +3,8 @@ Copyright (c) 2022 Henrik Böving. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Henrik Böving, Simon Hudon
 -/
-import Mathlib.Algebra.Order.Ring.Int
-import Mathlib.Data.List.Monad
-import Mathlib.Testing.SlimCheck.Gen
+import Lean -- TODO: minimize
+import SlimCheck.Gen
 
 /-!
 # `SampleableExt` Class
@@ -89,7 +88,7 @@ namespace SlimCheck
 open Random Gen
 
 universe u v
-variable {α β : Type*}
+variable {α β : Type _}
 
 /-- Given an example `x : α`, `Shrinkable α` gives us a way to shrink it
 and suggest simpler examples. -/
@@ -143,9 +142,6 @@ successively dividing `n` by 2 . For example, `Nat.shrink 5 = [2, 1, 0]`. -/
 def Nat.shrink (n : Nat) : List Nat :=
   if h : 0 < n then
     let m := n/2
-    have : m < n := by
-      apply Nat.div_lt_self h
-      decide
     m :: shrink m
   else
     []
@@ -154,15 +150,15 @@ instance Nat.shrinkable : Shrinkable Nat where
   shrink := Nat.shrink
 
 instance Fin.shrinkable {n : Nat} : Shrinkable (Fin n.succ) where
-  shrink m := Nat.shrink m
+  shrink m := Nat.shrink m |>.map Fin.ofNat
 
 /-- `Int.shrinkable` operates like `Nat.shrinkable` but also includes the negative variants. -/
 instance Int.shrinkable : Shrinkable Int where
-  shrink n := Nat.shrink n.natAbs |>.map (fun x ↦ ([x, -x] : List ℤ)) |>.join
-
-instance Rat.shrinkable : Shrinkable Rat where
-  shrink r :=
-    (Shrinkable.shrink r.num).bind fun d => Nat.shrink r.den |>.map fun n => Rat.divInt d n
+  shrink n :=
+    let converter n :=
+      let int := Int.ofNat n
+      [int, -int]
+    Nat.shrink n.natAbs |>.bind converter
 
 instance Bool.shrinkable : Shrinkable Bool := {}
 instance Char.shrinkable : Shrinkable Char := {}
@@ -185,9 +181,9 @@ open Shrinkable
 
 /-- Shrink a list of a shrinkable type, either by discarding an element or shrinking an element. -/
 instance List.shrinkable [Shrinkable α] : Shrinkable (List α) where
-  shrink := fun L =>
-    (L.mapIdx fun i _ => L.eraseIdx i) ++
-    (L.mapIdx fun i a => (shrink a).map fun a' => L.modifyNth (fun _ => a') i).join
+  shrink := fun L => sorry
+    --(L.mapIdx fun i _ => L.eraseIdx i) ++
+    --(L.mapIdx fun i a => (shrink a).map fun a' => L.modifyNth (fun _ => a') i).join
 
 end Shrinkers
 
@@ -204,16 +200,8 @@ instance Fin.sampleableExt {n : Nat} : SampleableExt (Fin (n.succ)) :=
     exact Nat.zero_le _))
 
 instance Int.sampleableExt : SampleableExt Int :=
-  mkSelfContained (do
-    choose Int (-(← getSize)) (← getSize)
-      (le_trans (Int.neg_nonpos_of_nonneg (Int.ofNat_zero_le _)) (Int.ofNat_zero_le _)))
-
-instance Rat.sampleableExt : SampleableExt Rat :=
-  mkSelfContained (do
-    let d ← choose Int (-(← getSize)) (← getSize)
-      (le_trans (Int.neg_nonpos_of_nonneg (Int.ofNat_zero_le _)) (Int.ofNat_zero_le _))
-    let n ← choose Nat 0 (← getSize) (Nat.zero_le _)
-    return Rat.divInt d n)
+  mkSelfContained do
+    choose Int (-(← getSize)) (← getSize) (by omega)
 
 instance Bool.sampleableExt : SampleableExt Bool :=
   mkSelfContained <| chooseAny Bool
@@ -285,8 +273,11 @@ def printSamples {t : Type} [Repr t] (g : Gen t) : IO PUnit := do
   for i in List.range 10 do
     IO.println s!"{repr (← g.run i)}"
 
-open Lean Meta Qq
+end SlimCheck
 
+/-
+
+open Lean Meta
 /-- Create a `Gen α` expression from the argument of `#sample` -/
 def mkGenerator (e : Expr) : MetaM (Σ (u : Level) (α : Q(Type $u)), Q(Repr $α) × Q(Gen $α)) := do
   match ← inferTypeQ e with
@@ -338,6 +329,7 @@ values of type `type` using an increasing size parameter.
 -- or whatever
 ```
 -/
+
 elab "#sample " e:term : command =>
   Command.runTermElabM fun _ => do
     let e ← Elab.Term.elabTermAndSynthesize e none
@@ -347,5 +339,5 @@ elab "#sample " e:term : command =>
     let printSamples := q(printSamples (t := $α) $gen)
     let code ← unsafe evalExpr (IO PUnit) q(IO PUnit) printSamples
     _ ← code
+-/
 
-end SlimCheck

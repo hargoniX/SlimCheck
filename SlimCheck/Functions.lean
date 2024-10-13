@@ -70,12 +70,12 @@ namespace TotalFunction
 -- Porting note: new
 /-- Compose a total function with a regular function on the left -/
 def comp {γ : Type w} (f : β → γ) : TotalFunction α β → TotalFunction α γ
-  | TotalFunction.withDefault m y => TotalFunction.withDefault
-    (m.map <| Sigma.map id fun _ => f) (f y)
+  | TotalFunction.withDefault m y =>
+    TotalFunction.withDefault (m.map fun ⟨a, b⟩ => ⟨a, f b⟩) (f y)
 
 /-- Apply a total function to an argument. -/
 def apply [DecidableEq α] : TotalFunction α β → α → β
-  | TotalFunction.withDefault m y, x => (m.dlookup x).getD y
+  | TotalFunction.withDefault m y, x => (m.find? fun ⟨a, _⟩ => a = x).map Sigma.snd |>.getD y
 
 /-- Implementation of `Repr (TotalFunction α β)`.
 
@@ -99,21 +99,12 @@ instance (α : Type u) (β : Type v) [Repr α] [Repr β] : Repr (TotalFunction �
 
 /-- Create a `Finmap` from a list of pairs. -/
 def List.toFinmap' (xs : List (α × β)) : List (Σ _ : α, β) :=
-  xs.map Prod.toSigma
+  xs.map (fun ⟨a, b⟩ => ⟨a, b⟩)
 
 section
 
 universe ua ub
 variable [SampleableExt.{_,u} α] [SampleableExt.{_,ub} β]
-
--- Porting note: removed, there is no `SizeOf.sizeOf` in the new `Sampleable`
-
--- /-- Redefine `SizeOf.sizeOf` to follow the structure of `sampleable` instances. -/
--- def Total.sizeof : TotalFunction α β → ℕ
---   | ⟨m, x⟩ => 1 + @SizeOf.sizeOf _ Sampleable.wf m + SizeOf.sizeOf x
-
--- instance (priority := 2000) : SizeOf (TotalFunction α β) :=
---   ⟨Total.sizeof⟩
 
 variable [DecidableEq α]
 
@@ -129,7 +120,7 @@ instance Pi.sampleableExt : SampleableExt (α → β) where
   interp f := SampleableExt.interp ∘ f.apply
   sample := do
     let xs : List (_ × _) ← (SampleableExt.sample (α := List (α × β)))
-    let ⟨x⟩ ← ULiftable.up.{max u ub} <| (SampleableExt.sample : Gen (SampleableExt.proxy β))
+    let ⟨x⟩ ← Gen.up <| (SampleableExt.sample : Gen (SampleableExt.proxy β))
     pure <| TotalFunction.withDefault (List.toFinmap' <| xs.map <|
       Prod.map SampleableExt.interp id) x
   -- note: no way of shrinking the domain without an inverse to `interp`

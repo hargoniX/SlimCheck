@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Henrik Böving, Simon Hudon
 -/
 import SlimCheck.Random
-import SlimCheck.ULiftable
 
 /-!
 # `Gen` Monad
@@ -37,13 +36,15 @@ It has a `Nat` parameter so that the caller can decide on the
 size of the examples. -/
 abbrev Gen (α : Type u) := ReaderT (ULift Nat) Rand α
 
-instance : ULiftable Gen.{u} Gen.{max u v} :=
-@ULiftable.ReaderT.instULiftableULiftULift.{u, u, v, 0,
-  u, max u v} Nat (StateT (ULift StdGen) Id) Rand
-  (@ULiftable.StateT.instULiftableULiftULift.{u, u, v, 0,
-  u, max u v} StdGen Id Id ULiftable.instULiftableId)
-
 namespace Gen
+
+@[inline]
+def up (x : Gen.{u} α) : Gen.{max u v} (ULift α) := do
+  let size ← read
+  let gen ← get
+  let ⟨val, gen⟩ := x.run ⟨size.down⟩ |>.run ⟨gen.down⟩
+  set <| ULift.up gen.down
+  return ⟨val⟩
 
 /-- Lift `Random.random` to the `Gen` monad. -/
 def chooseAny (α : Type u) [Random Id α] : Gen α :=
@@ -77,8 +78,8 @@ variable {α : Type u}
 /-- Create an `Array` of examples using `x`. The size is controlled
 by the size parameter of `Gen`. -/
 def arrayOf (x : Gen α) : Gen (Array α) := do
-  let ⟨sz⟩ ← ULiftable.up chooseNat
-  let mut res := #[]
+  let ⟨sz⟩ ← up chooseNat
+  let mut res := Array.mkEmpty sz
   for _ in [0:sz] do
     res := res.push (← x)
   return res
@@ -91,12 +92,12 @@ def listOf (x : Gen α) : Gen (List α) := do
 
 /-- Given a list of example generators, choose one to create an example. -/
 def oneOf (xs : Array (Gen α)) (pos : 0 < xs.size := by decide) : Gen α := do
-  let ⟨x, _, h2⟩ ← ULiftable.up <| chooseNatLt 0 xs.size pos
+  let ⟨x, _, h2⟩ ← up <| chooseNatLt 0 xs.size pos
   xs.get ⟨x, h2⟩
 
 /-- Given a list of examples, choose one to create an example. -/
 def elements (xs : List α) (pos : 0 < xs.length) : Gen α := do
-  let ⟨x, _, h2⟩ ← ULiftable.up <| chooseNatLt 0 xs.length pos
+  let ⟨x, _, h2⟩ ← up <| chooseNatLt 0 xs.length pos
   return xs[x]
 
 open List in
@@ -106,13 +107,13 @@ def permutationOf : (xs : List α) → Gen { ys // xs ~ ys }
   | [] => pure ⟨[], Perm.nil⟩
   | x::xs => do
     let ⟨ys, h1⟩ ← permutationOf xs
-    let ⟨n, _, h3⟩ ← ULiftable.up <| choose Nat 0 ys.length (by omega)
+    let ⟨n, _, h3⟩ ← up <| choose Nat 0 ys.length (by omega)
     return sorry--⟨insertNth n x ys, Perm.trans (Perm.cons _ h1) (perm_insertNth _ _ h3).symm⟩
 
 /-- Given two generators produces a tuple consisting out of the result of both -/
 def prodOf {α : Type u} {β : Type v} (x : Gen α) (y : Gen β) : Gen (α × β) := do
-  let ⟨a⟩ ← ULiftable.up x
-  let ⟨b⟩ ← ULiftable.up y
+  let ⟨a⟩ ← up x
+  let ⟨b⟩ ← up y
   return (a, b)
 
 end Gen

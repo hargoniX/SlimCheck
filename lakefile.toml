@@ -4,3 +4,8 @@ defaultTargets = ["SlimCheck"]
 
 [[lean_lib]]
 name = "SlimCheck"
+
+[[require]]
+name = "batteries"
+scope = "leanprover-community"
+version = "git#v4.13.0-rc3"

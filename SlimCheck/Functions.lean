@@ -111,7 +111,7 @@ variable [DecidableEq α]
 /-- Shrink a total function by shrinking the lists that represent it. -/
 def shrink {α β} [DecidableEq α] [Shrinkable α] [Shrinkable β] :
     TotalFunction α β → List (TotalFunction α β)
-  | ⟨m, x⟩ => (Shrinkable.shrink (m, x)).map fun ⟨m', x'⟩ => ⟨List.dedupKeys m', x'⟩
+  | ⟨m, x⟩ => (Shrinkable.shrink (m, x)).map fun ⟨m', x'⟩ => sorry--⟨List.dedupKeys m', x'⟩
 
 variable [Repr α]
 

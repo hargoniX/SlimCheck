@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Henrik Böving, Simon Hudon
 -/
 import SlimCheck.Random
+import Batteries.Data.List.Basic
+import Batteries.Data.List.Perm
 
 /-!
 # `Gen` Monad
@@ -108,7 +110,7 @@ def permutationOf : (xs : List α) → Gen { ys // xs ~ ys }
   | x::xs => do
     let ⟨ys, h1⟩ ← permutationOf xs
     let ⟨n, _, h3⟩ ← up <| choose Nat 0 ys.length (by omega)
-    return sorry--⟨insertNth n x ys, Perm.trans (Perm.cons _ h1) (perm_insertNth _ _ h3).symm⟩
+    return ⟨insertNth n x ys, Perm.trans (Perm.cons _ h1) (List.perm_insertNth _ _ h3).symm⟩
 
 /-- Given two generators produces a tuple consisting out of the result of both -/
 def prodOf {α : Type u} {β : Type v} (x : Gen α) (y : Gen β) : Gen (α × β) := do

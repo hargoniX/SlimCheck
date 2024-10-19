@@ -1,5 +1,15 @@
 {"version": "1.1.0",
  "packagesDir": ".lake/packages",
- "packages": [],
+ "packages":
+ [{"url": "https://github.com/leanprover-community/batteries",
+   "type": "git",
+   "subDir": null,
+   "scope": "leanprover-community",
+   "rev": "daf1ed91789811cf6bbb7bf2f4dad6b3bad8fbf4",
+   "name": "batteries",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "v4.13.0-rc3",
+   "inherited": false,
+   "configFile": "lakefile.lean"}],
  "name": "SlimCheck",
  "lakeDir": ".lake"}

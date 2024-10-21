@@ -265,7 +265,13 @@ instance orTestable [Testable p] [Testable q] : Testable (p ∨ q) where
 instance iffTestable [Testable ((p ∧ q) ∨ (¬ p ∧ ¬ q))] : Testable (p ↔ q) where
   run := fun cfg min ↦ do
     let h ← runProp ((p ∧ q) ∨ (¬ p ∧ ¬ q)) cfg min
-    return iff sorry h
+    have := by
+      constructor
+      · intro h
+        simp [h, Classical.em]
+      · intro h
+        rcases h with ⟨hleft, hright⟩ | ⟨hleft, hright⟩ <;> simp [hleft, hright]
+    return iff this h
 
 variable {var : String}
 
@@ -402,7 +408,8 @@ instance (priority := 2000) subtypeVarTestable {p : α → Prop} {β : α → Pr
           return addInfo s!"guard: {printProp (p x)} (by construction)" id r (PSum.inr id) }
     do
       let r ← @Testable.run (∀ x : Subtype p, β x.val) (@varTestable var _ _ _ _) cfg min
-      return iff sorry r
+      have := by simp [Subtype.forall, NamedBinder]
+      return iff this r
 
 instance (priority := low) decidableTestable {p : Prop} [PrintableProp p] [Decidable p] :
     Testable p where

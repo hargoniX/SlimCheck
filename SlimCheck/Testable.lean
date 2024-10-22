@@ -3,8 +3,9 @@ Copyright (c) 2022 Henrik Böving. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Henrik Böving, Simon Hudon
 -/
+import Lean.Elab.Tactic.Config
 import SlimCheck.Sampleable
-import Lean -- TODO: minimize
+
 
 /-!
 # `Testable` Class

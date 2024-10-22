@@ -7,3 +7,6 @@ import SlimCheck.Gen
 import SlimCheck.Functions
 import SlimCheck.Testable
 import SlimCheck.Sampleable
+import SlimCheck.Attr
+import SlimCheck.Tactic
+import SlimCheck.Random

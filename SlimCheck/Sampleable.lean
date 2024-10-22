@@ -267,16 +267,13 @@ end NoShrink
 /--
 Print (at most) 10 samples of a given type to stdout for debugging.
 -/
--- Porting note: if `Control.ULiftable` is ported, make use of that here, as in mathlib3,
--- to enable sampling from higher types.
 def printSamples {t : Type} [Repr t] (g : Gen t) : IO PUnit := do
   for i in List.range 10 do
     IO.println s!"{repr (← g.run i)}"
 
-end SlimCheck
+open Lean Meta Elab
 
 /-
-
 open Lean Meta
 /-- Create a `Gen α` expression from the argument of `#sample` -/
 def mkGenerator (e : Expr) : MetaM (Σ (u : Level) (α : Q(Type $u)), Q(Repr $α) × Q(Gen $α)) := do
@@ -293,7 +290,32 @@ def mkGenerator (e : Expr) : MetaM (Σ (u : Level) (α : Q(Type $u)), Q(Repr $α
     pure ⟨v, q(SampleableExt.proxy $α), repr_inst, gen⟩
   | ⟨_u, t, _e⟩ =>
     throwError "Must be a Sort u` or a `Gen α`, got value of type{indentExpr t}"
-open Elab
+-/
+
+/--
+`e` is a type to sample from, this can either be a type that implements `SampleableExt` or `Gen α`
+directly. For this return:
+- the universe level of the `Type u` that the relevant type to sample lives in.
+- the actual type `α` to sample from
+- a `Repr α` instance
+- a `Gen α` generator to run in order to sample
+-/
+private def mkGenerator (e : Expr) : MetaM (Level × Expr × Expr × Expr) := do
+  let exprTyp ← inferType e
+  let .sort u ← whnf (← inferType exprTyp) | throwError m!"{exprTyp} is not a type"
+  let .succ u := u | throwError m!"{exprTyp} is not a type with computational content"
+  match_expr exprTyp with
+  | Gen α =>
+    let reprInst ← synthInstance (mkApp (mkConst ``Repr [u]) α)
+    return ⟨u, α, reprInst, e⟩
+  | _ =>
+    let v ← mkFreshLevelMVar
+    let sampleableExtInst ← synthInstance (mkApp (mkConst ``SampleableExt [u, v]) e)
+    let v ← instantiateLevelMVars v
+    let reprInst := mkApp2 (mkConst ``SampleableExt.proxyRepr [u, v]) e sampleableExtInst
+    let gen := mkApp2 (mkConst ``SampleableExt.sample [u, v]) e sampleableExtInst
+    let typ := mkApp2 (mkConst ``SampleableExt.proxy [u, v]) e sampleableExtInst
+    return ⟨v, typ, reprInst, gen⟩
 
 /--
 `#sample type`, where `type` has an instance of `SampleableExt`, prints ten random
@@ -329,15 +351,13 @@ values of type `type` using an increasing size parameter.
 -- or whatever
 ```
 -/
-
 elab "#sample " e:term : command =>
   Command.runTermElabM fun _ => do
     let e ← Elab.Term.elabTermAndSynthesize e none
     let g ← mkGenerator e
-    -- `printSamples` only works in `Type 0` (see the porting note)
-    let ⟨0, α, _, gen⟩ := g | throwError "Cannot sample from {g.1} due to its universe"
-    let printSamples := q(printSamples (t := $α) $gen)
-    let code ← unsafe evalExpr (IO PUnit) q(IO PUnit) printSamples
+    let ⟨0, α, repr, gen⟩ := g | throwError "Cannot sample from {g.1} due to its universe"
+    let printSamples := mkApp3 (mkConst ``printSamples) α repr gen
+    let code ← unsafe evalExpr (IO PUnit) (mkApp (mkConst ``IO) (mkConst ``PUnit [1])) printSamples
     _ ← code
--/
 
+end SlimCheck

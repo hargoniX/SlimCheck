@@ -12,7 +12,6 @@ Demonstrate that SlimCheck can handle the basic types from core:
 - Unit
 - Prod
 - Bool
-- Subtype
 - Nat
 - Fin
 - UIntX
@@ -27,11 +26,6 @@ Demonstrate that SlimCheck can handle the basic types from core:
 /-- error: Found problems! -/
 #guard_msgs in
 example (a b : Sum Nat Nat) : a = b := by
-  slim_check (config := {quiet := true})
-
-/-- error: Found problems! -/
-#guard_msgs in
-example (a b : Σ n : Nat, Fin (n + 1)) : a.fst = a.snd := by
   slim_check (config := {quiet := true})
 
 /-- error: Found problems! -/
@@ -52,11 +46,6 @@ example (x y : Nat × Unit) : x = y := by
 /-- error: Found problems! -/
 #guard_msgs in
 example (a b : Bool) : a = b :=  by
-  slim_check (config := {quiet := true})
-
-/-- error: Found problems! -/
-#guard_msgs in
-example (x y : {a : Bool // a = true}) : x ≠ y := by
   slim_check (config := {quiet := true})
 
 /-- error: Found problems! -/

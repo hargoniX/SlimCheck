@@ -224,6 +224,17 @@ instance String.shrinkable : Shrinkable String where
 instance Array.shrinkable [Shrinkable α] : Shrinkable (Array α) where
   shrink xs := (shrink xs.toList).map Array.mk
 
+instance Subtype.shrinkable {α : Type u} {β : α → Prop} [Shrinkable α] [∀ x, Decidable (β x)] : Shrinkable {x : α // β x} where
+  shrink x :=
+    let val := x.val
+    let candidates := shrink val
+    let filter x := do
+      if h : β x then
+        some ⟨x, h⟩
+      else
+        none
+    candidates.filterMap filter
+
 end Shrinkers
 
 section Samplers
@@ -244,13 +255,25 @@ instance Sum.SampleableExt [SampleableExt α] [SampleableExt β] : SampleableExt
 instance Unit.sampleableExt : SampleableExt Unit :=
   mkSelfContained (return ())
 
+instance [SampleableExt α] [SampleableExt β] : SampleableExt ((_ : α) × β) where
+  proxy := (_ : proxy α) × proxy β
+  sample := do
+    let p ← prodOf sample sample
+    return ⟨p.fst, p.snd⟩
+  interp s := ⟨interp s.fst, interp s.snd⟩
+
 instance Nat.sampleableExt : SampleableExt Nat :=
   mkSelfContained (do choose Nat 0 (← getSize) (Nat.zero_le _))
 
 instance Fin.sampleableExt {n : Nat} : SampleableExt (Fin (n.succ)) :=
-  mkSelfContained (do choose (Fin n.succ) (Fin.ofNat 0) (Fin.ofNat (← getSize)) (by
-    simp only [Fin.ofNat, Fin.val_zero]
-    exact Nat.zero_le _))
+  mkSelfContained do
+    let m ← choose Nat 0 (min (← getSize) n) (Nat.zero_le _)
+    return Fin.ofNat m
+
+instance BitVec.sampleableExt {n : Nat} : SampleableExt (BitVec n) :=
+  mkSelfContained do
+    let m ← choose Nat 0 (min (← getSize) (2^n)) (Nat.zero_le _)
+    return BitVec.ofNat _ m
 
 instance UInt8.SampleableExt : SampleableExt UInt8 :=
   mkSelfContained do

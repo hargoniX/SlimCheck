@@ -567,7 +567,11 @@ def Testable.check (p : Prop) (cfg : Configuration := {})
   match ← Testable.checkIO p' cfg with
   | TestResult.success _ => if !cfg.quiet then Lean.logInfo "Success"
   | TestResult.gaveUp n => if !cfg.quiet then Lean.logWarning s!"Gave up {n} times"
-  | TestResult.failure _ xs n => Lean.throwError <| formatFailure "Found problems!" xs n
+  | TestResult.failure _ xs n =>
+    if cfg.quiet then
+      Lean.throwError "Found problems!"
+    else
+      Lean.throwError <| formatFailure "Found problems!" xs n
 
 -- #eval Testable.check (∀ (x y z a : Nat) (h1 : 3 < x) (h2 : 3 < y), x - y = y - x)
 --   Configuration.verbose

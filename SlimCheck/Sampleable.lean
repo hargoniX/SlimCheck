@@ -137,6 +137,15 @@ end SampleableExt
 
 section Shrinkers
 
+instance [Shrinkable α] [Shrinkable β] : Shrinkable (Sum α β) where
+  shrink s :=
+    match s with
+    | .inl l => Shrinkable.shrink l |>.map .inl
+    | .inr r => Shrinkable.shrink r |>.map .inr
+
+instance Unit.shrinkable : Shrinkable Unit where
+  shrink _ := []
+
 /-- `Nat.shrink' n` creates a list of smaller natural numbers by
 successively dividing `n` by 2 . For example, `Nat.shrink 5 = [2, 1, 0]`. -/
 def Nat.shrink (n : Nat) : List Nat :=
@@ -152,6 +161,24 @@ instance Nat.shrinkable : Shrinkable Nat where
 instance Fin.shrinkable {n : Nat} : Shrinkable (Fin n.succ) where
   shrink m := Nat.shrink m |>.map Fin.ofNat
 
+instance BitVec.shrinkable {n : Nat} : Shrinkable (BitVec n) where
+  shrink m := Nat.shrink m.toNat |>.map (BitVec.ofNat n)
+
+instance UInt8.shrinkable : Shrinkable UInt8 where
+  shrink m := Nat.shrink m.toNat |>.map UInt8.ofNat
+
+instance UInt16.shrinkable : Shrinkable UInt16 where
+  shrink m := Nat.shrink m.toNat |>.map UInt16.ofNat
+
+instance UInt32.shrinkable : Shrinkable UInt32 where
+  shrink m := Nat.shrink m.toNat |>.map UInt32.ofNat
+
+instance UInt64.shrinkable : Shrinkable UInt64 where
+  shrink m := Nat.shrink m.toNat |>.map UInt64.ofNat
+
+instance USize.shrinkable : Shrinkable USize where
+  shrink m := Nat.shrink m.toNat |>.map USize.ofNat
+
 /-- `Int.shrinkable` operates like `Nat.shrinkable` but also includes the negative variants. -/
 instance Int.shrinkable : Shrinkable Int where
   shrink n :=
@@ -162,6 +189,12 @@ instance Int.shrinkable : Shrinkable Int where
 
 instance Bool.shrinkable : Shrinkable Bool := {}
 instance Char.shrinkable : Shrinkable Char := {}
+
+instance Option.shrinkable [Shrinkable α] : Shrinkable (Option α) where
+  shrink o :=
+    match o with
+    | some x => Shrinkable.shrink x |>.map .some
+    | none => []
 
 instance Prod.shrinkable [shrA : Shrinkable α] [shrB : Shrinkable β] :
     Shrinkable (Prod α β) where
@@ -185,11 +218,31 @@ instance List.shrinkable [Shrinkable α] : Shrinkable (List α) where
     (L.mapIdx fun i _ => L.eraseIdx i) ++
     (L.mapIdx fun i a => (shrink a).map fun a' => L.modifyNth (fun _ => a') i).join
 
+instance String.shrinkable : Shrinkable String where
+  shrink s := (shrink s.toList).map String.mk
+
+instance Array.shrinkable [Shrinkable α] : Shrinkable (Array α) where
+  shrink xs := (shrink xs.toList).map Array.mk
+
 end Shrinkers
 
 section Samplers
 
 open SampleableExt
+
+instance Sum.SampleableExt [SampleableExt α] [SampleableExt β] : SampleableExt (Sum α β) where
+  proxy := Sum (proxy α) (proxy β)
+  sample := do
+    match ← chooseAny Bool with 
+    | true => return .inl (← sample)
+    | false => return .inr (← sample)
+  interp s :=
+    match s with
+    | .inl l => .inl (interp l)
+    | .inr r => .inr (interp r)
+
+instance Unit.sampleableExt : SampleableExt Unit :=
+  mkSelfContained (return ())
 
 instance Nat.sampleableExt : SampleableExt Nat :=
   mkSelfContained (do choose Nat 0 (← getSize) (Nat.zero_le _))
@@ -198,6 +251,31 @@ instance Fin.sampleableExt {n : Nat} : SampleableExt (Fin (n.succ)) :=
   mkSelfContained (do choose (Fin n.succ) (Fin.ofNat 0) (Fin.ofNat (← getSize)) (by
     simp only [Fin.ofNat, Fin.val_zero]
     exact Nat.zero_le _))
+
+instance UInt8.SampleableExt : SampleableExt UInt8 :=
+  mkSelfContained do
+    let n ← choose Nat 0 (min (← getSize) UInt8.size) (Nat.zero_le _)
+    return UInt8.ofNat n
+
+instance UInt16.SampleableExt : SampleableExt UInt16 :=
+  mkSelfContained do
+    let n ← choose Nat 0 (min (← getSize) UInt16.size) (Nat.zero_le _)
+    return UInt16.ofNat n
+
+instance UInt32.SampleableExt : SampleableExt UInt32 :=
+  mkSelfContained do
+    let n ← choose Nat 0 (min (← getSize) UInt32.size) (Nat.zero_le _)
+    return UInt32.ofNat n
+
+instance UInt64.SampleableExt : SampleableExt UInt64 :=
+  mkSelfContained do
+    let n ← choose Nat 0 (min (← getSize) UInt64.size) (Nat.zero_le _)
+    return UInt64.ofNat n
+
+instance USize.SampleableExt : SampleableExt USize :=
+  mkSelfContained do
+    let n ← choose Nat 0 (min (← getSize) USize.size) (Nat.zero_le _)
+    return USize.ofNat n
 
 instance Int.sampleableExt : SampleableExt Int :=
   mkSelfContained do
@@ -222,6 +300,14 @@ def Char.sampleable (length : Nat) (chars : List Char) (pos : 0 < chars.length) 
 instance Char.sampleableDefault : SampleableExt Char :=
   Char.sampleable 3 " 0123abcABC:,;`\\/".toList (by decide)
 
+instance Option.sampleableExt [SampleableExt α] : SampleableExt (Option α) where
+  proxy := Option (proxy α)
+  sample := do
+    match ← chooseAny Bool with 
+    | true => return none
+    | false => return some (← sample)
+  interp o := o.map interp
+
 instance Prod.sampleableExt {α : Type u} {β : Type v} [SampleableExt α] [SampleableExt β] :
     SampleableExt (α × β) where
   proxy := Prod (proxy α) (proxy β)
@@ -241,6 +327,14 @@ instance List.sampleableExt [SampleableExt α] : SampleableExt (List α) where
   proxy := List (proxy α)
   sample := Gen.listOf sample
   interp := List.map interp
+
+instance String.sampleableExt : SampleableExt String :=
+  mkSelfContained do return String.mk (← Gen.listOf (Char.sampleableDefault.sample))
+
+instance Array.sampleableExt [SampleableExt α] : SampleableExt (Array α) where
+  proxy := Array (proxy α)
+  sample := Gen.arrayOf sample
+  interp := Array.map interp
 
 end Samplers
 
@@ -263,7 +357,6 @@ instance sampleableExt [SampleableExt α] [Repr α] : SampleableExt (NoShrink α
 
 end NoShrink
 
-
 /--
 Print (at most) 10 samples of a given type to stdout for debugging.
 -/
@@ -272,25 +365,6 @@ def printSamples {t : Type} [Repr t] (g : Gen t) : IO PUnit := do
     IO.println s!"{repr (← g.run i)}"
 
 open Lean Meta Elab
-
-/-
-open Lean Meta
-/-- Create a `Gen α` expression from the argument of `#sample` -/
-def mkGenerator (e : Expr) : MetaM (Σ (u : Level) (α : Q(Type $u)), Q(Repr $α) × Q(Gen $α)) := do
-  match ← inferTypeQ e with
-  | ⟨.succ u, ~q(Gen $α), gen⟩ =>
-    let repr_inst ← synthInstanceQ (q(Repr $α) : Q(Type $u))
-    pure ⟨u, α, repr_inst, gen⟩
-  | ⟨.succ u, ~q(Sort u), α⟩ => do
-    let v ← mkFreshLevelMVar
-    let _sampleableExt_inst ← synthInstanceQ (q(SampleableExt.{u,v} $α) : Q(Sort (max u (v + 2))))
-    let v ← instantiateLevelMVars v
-    let repr_inst := q(SampleableExt.proxyRepr (α := $α))
-    let gen := q(SampleableExt.sample (α := $α))
-    pure ⟨v, q(SampleableExt.proxy $α), repr_inst, gen⟩
-  | ⟨_u, t, _e⟩ =>
-    throwError "Must be a Sort u` or a `Gen α`, got value of type{indentExpr t}"
--/
 
 /--
 `e` is a type to sample from, this can either be a type that implements `SampleableExt` or `Gen α`

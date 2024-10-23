@@ -17,18 +17,16 @@ controlling the size of those values using the `Gen` monad.
 This class helps minimize examples by creating smaller versions of
 given values.
 
-When testing a proposition like `∀ n : ℕ, Prime n → n ≤ 100`,
-`SlimCheck` requires that `ℕ` have an instance of `SampleableExt` and for
+When testing a proposition like `∀ n : Nat, Prime n → n ≤ 100`,
+`SlimCheck` requires that `Nat` have an instance of `SampleableExt` and for
 `Prime n` to be decidable.  `SlimCheck` will then use the instance of
-`SampleableExt` to generate small examples of ℕ and progressively increase
+`SampleableExt` to generate small examples of Nat and progressively increase
 in size. For each example `n`, `Prime n` is tested. If it is false,
 the example will be rejected (not a test success nor a failure) and
 `SlimCheck` will move on to other examples. If `Prime n` is true,
 `n ≤ 100` will be tested. If it is false, `n` is a counter-example of
-`∀ n : ℕ, Prime n → n ≤ 100` and the test fails. If `n ≤ 100` is true,
+`∀ n : Nat, Prime n → n ≤ 100` and the test fails. If `n ≤ 100` is true,
 the test passes and `SlimCheck` moves on to trying more examples.
-
-This is a port of the Haskell QuickCheck library.
 
 ## Main definitions
 
@@ -43,7 +41,7 @@ if this is what you want to do then `SampleableExt.mkSelfContained` is
 the way to go.
 
 Furthermore it makes it possible to express generators for types that
-do not lend themselves to introspection, such as `ℕ → ℕ`.
+do not lend themselves to introspection, such as `Nat → Nat`.
 If we test a quantification over functions the
 counter-examples cannot be shrunken or printed meaningfully.
 For that purpose, `SampleableExt` provides a proxy representation
@@ -59,7 +57,7 @@ and suggest simpler examples.
 
 ## Shrinking
 
-Shrinking happens when `SlimCheck` find a counter-example to a
+Shrinking happens when `SlimCheck` finds a counter-example to a
 property.  It is likely that the example will be more complicated than
 necessary so `SlimCheck` proceeds to shrink it as much as
 possible. Although equally valid, a smaller counter-example is easier
@@ -93,7 +91,7 @@ variable {α β : Type _}
 /-- Given an example `x : α`, `Shrinkable α` gives us a way to shrink it
 and suggest simpler examples. -/
 class Shrinkable (α : Type u) where
-  shrink : (x : α) → List α := fun _ ↦ []
+  shrink : (x : α) → List α := fun _ => []
 
 /-- `SampleableExt` can be used in two ways. The first (and most common)
 is to simply generate values of a type directly using the `Gen` monad,
@@ -101,7 +99,7 @@ if this is what you want to do then `SampleableExt.mkSelfContained` is
 the way to go.
 
 Furthermore it makes it possible to express generators for types that
-do not lend themselves to introspection, such as `ℕ → ℕ`.
+do not lend themselves to introspection, such as `Nat → Nat`.
 If we test a quantification over functions the
 counter-examples cannot be shrunken or printed meaningfully.
 For that purpose, `SampleableExt` provides a proxy representation
@@ -198,16 +196,16 @@ instance Option.shrinkable [Shrinkable α] : Shrinkable (Option α) where
 
 instance Prod.shrinkable [shrA : Shrinkable α] [shrB : Shrinkable β] :
     Shrinkable (Prod α β) where
-  shrink := fun (fst,snd) ↦
-    let shrink1 := shrA.shrink fst |>.map fun x ↦ (x, snd)
-    let shrink2 := shrB.shrink snd |>.map fun x ↦ (fst, x)
+  shrink := fun (fst,snd) =>
+    let shrink1 := shrA.shrink fst |>.map fun x => (x, snd)
+    let shrink2 := shrB.shrink snd |>.map fun x => (fst, x)
     shrink1 ++ shrink2
 
 instance Sigma.shrinkable [shrA : Shrinkable α] [shrB : Shrinkable β] :
     Shrinkable ((_ : α) × β) where
-  shrink := fun ⟨fst,snd⟩ ↦
-    let shrink1 := shrA.shrink fst |>.map fun x ↦ ⟨x, snd⟩
-    let shrink2 := shrB.shrink snd |>.map fun x ↦ ⟨fst, x⟩
+  shrink := fun ⟨fst,snd⟩ =>
+    let shrink1 := shrA.shrink fst |>.map fun x => ⟨x, snd⟩
+    let shrink2 := shrB.shrink snd |>.map fun x => ⟨fst, x⟩
     shrink1 ++ shrink2
 
 open Shrinkable
@@ -373,7 +371,7 @@ instance inhabited [inst : Inhabited α] : Inhabited (NoShrink α) := inst
 instance repr [inst : Repr α] : Repr (NoShrink α) := inst
 
 instance shrinkable : Shrinkable (NoShrink α) where
-  shrink := fun _ ↦ []
+  shrink := fun _ => []
 
 instance sampleableExt [SampleableExt α] [Repr α] : SampleableExt (NoShrink α) :=
   SampleableExt.mkSelfContained <| (NoShrink.mk ∘ SampleableExt.interp) <$> SampleableExt.sample

@@ -12,15 +12,10 @@ import Batteries.Data.List.Perm
 
 This monad is used to formulate randomized computations with a parameter
 to specify the desired size of the result.
-This is a port of the Haskell QuickCheck library.
 
 ## Main definitions
 
 * `Gen` monad
-
-## Tags
-
-random testing
 
 ## References
 
@@ -50,12 +45,12 @@ def up (x : Gen.{u} α) : Gen.{max u v} (ULift α) := do
 
 /-- Lift `Random.random` to the `Gen` monad. -/
 def chooseAny (α : Type u) [Random Id α] : Gen α :=
-  fun _ ↦ rand α
+  fun _ => rand α
 
 /-- Lift `BoundedRandom.randomR` to the `Gen` monad. -/
 def choose (α : Type u) [LE α] [BoundedRandom Id α] (lo hi : α) (h : lo ≤ hi) :
     Gen {a // lo ≤ a ∧ a ≤ hi} :=
-  fun _ ↦ randBound α lo hi h
+  fun _ => randBound α lo hi h
 
 /-- Generate a `Nat` example between `lo` and `hi` (exclusively). -/
 def chooseNatLt (lo hi : Nat) (h : lo < hi) : Gen {a // lo ≤ a ∧ a < hi} := do

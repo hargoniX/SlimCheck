@@ -101,7 +101,7 @@ def randBound (α : Type u) [LE α] [BoundedRandom m α] (lo hi : α) (h : lo �
 Generate a random `Fin`.
 -/
 def randFin {n : Nat} [RandomGen g] : RandGT g m (Fin n.succ) :=
-  fun ⟨g⟩ ↦ return randNat g 0 n |>.map Fin.ofNat ULift.up
+  fun ⟨g⟩ => return randNat g 0 n |>.map Fin.ofNat ULift.up
 
 instance {n : Nat} : Random m (Fin n.succ) where
   random := randFin
@@ -128,6 +128,11 @@ instance : BoundedRandom m Int where
 instance {n : Nat} : BoundedRandom m (Fin n) where
   randomR lo hi h _ := do
     let ⟨r, h1, h2⟩ ← randBound Nat lo.val hi.val h
+    return ⟨⟨r, by omega⟩, h1, h2⟩
+
+instance {n : Nat} : BoundedRandom m (BitVec n) where
+  randomR lo hi h _ := do
+    let ⟨r, h1, h2⟩ ← randBound Nat lo.toNat hi.toNat h
     return ⟨⟨r, by omega⟩, h1, h2⟩
 
 end Random

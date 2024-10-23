@@ -13,7 +13,7 @@ import SlimCheck.Attr
 A proposition can be tested by writing it out as:
 
 ```lean
-example (xs : List ℕ) (w : ∃ x ∈ xs, x < 3) : ∀ y ∈ xs, y < 5 := by slim_check
+example (xs : List Nat) (w : ∃ x ∈ xs, x < 3) : ∀ y ∈ xs, y < 5 := by slim_check
 -- ===================
 -- Found problems!
 
@@ -22,7 +22,7 @@ example (xs : List ℕ) (w : ∃ x ∈ xs, x < 3) : ∀ y ∈ xs, y < 5 := by sl
 -- y := 5
 -- -------------------
 
-example (x : ℕ) (h : 2 ∣ x) : x < 100 := by slim_check
+example (x : Nat) (h : 2 ∣ x) : x < 100 := by slim_check
 -- ===================
 -- Found problems!
 
@@ -33,7 +33,7 @@ example (α : Type) (xs ys : List α) : xs ++ ys = ys ++ xs := by slim_check
 -- ===================
 -- Found problems!
 
--- α := ℤ
+-- α := Int
 -- xs := [-4]
 -- ys := [1]
 -- -------------------
@@ -45,19 +45,19 @@ example : ∀ x ∈ [1,2,3], x < 4 := by slim_check
 In the first example, `slim_check` is called on the following goal:
 
 ```lean
-xs : List ℕ,
-h : ∃ (x : ℕ) (H : x ∈ xs), x < 3
-⊢ ∀ (y : ℕ), y ∈ xs → y < 5
+xs : List Nat,
+h : ∃ (x : Nat) (H : x ∈ xs), x < 3
+⊢ ∀ (y : Nat), y ∈ xs → y < 5
 ```
 
 The local constants are reverted and an instance is found for
-`Testable (∀ (xs : List ℕ), (∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))`.
-The `Testable` instance is supported by instances of `Sampleable (List ℕ)`,
+`Testable (∀ (xs : List Nat), (∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))`.
+The `Testable` instance is supported by instances of `Sampleable (List Nat)`,
 `Decidable (x < 3)` and `Decidable (y < 5)`. `slim_check` builds a
 `Testable` instance step by step with:
 
 ```
-- Testable (∀ (xs : List ℕ), (∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))
+- Testable (∀ (xs : List Nat), (∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))
                                      -: Sampleable (List xs)
 - Testable ((∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))
 - Testable (∀ x ∈ xs, x < 3 → (∀ y ∈ xs, y < 5))
@@ -67,7 +67,7 @@ The `Testable` instance is supported by instances of `Sampleable (List ℕ)`,
                                      -: Decidable (y < 5)
 ```
 
-`Sampleable (List ℕ)` lets us create random data of type `List ℕ` in a way that
+`Sampleable (List Nat)` lets us create random data of type `List Nat` in a way that
 helps find small counter-examples.  Next, the test of the proposition
 hinges on `x < 3` and `y < 5` to both be decidable. The
 implication between the two could be tested as a whole but it would be
@@ -88,7 +88,7 @@ If no counter-examples are found, `slim_check` behaves like `admit`.
 -- ===================
 -- Found problems!
 
--- α := ℤ
+-- α := Int
 -- xs := [-4]
 -- ys := [1]
 -- -------------------
@@ -109,14 +109,14 @@ that would contradict the statement.
 Let's consider the following proof goal.
 
 ```lean
-xs : List ℕ,
-h : ∃ (x : ℕ) (H : x ∈ xs), x < 3
-⊢ ∀ (y : ℕ), y ∈ xs → y < 5
+xs : List Nat,
+h : ∃ (x : Nat) (H : x ∈ xs), x < 3
+⊢ ∀ (y : Nat), y ∈ xs → y < 5
 ```
 
 The local constants will be reverted and an instance will be found for
-`Testable (∀ (xs : List ℕ), (∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))`.
-The `Testable` instance is supported by an instance of `Sampleable (List ℕ)`,
+`Testable (∀ (xs : List Nat), (∃ x ∈ xs, x < 3) → (∀ y ∈ xs, y < 5))`.
+The `Testable` instance is supported by an instance of `Sampleable (List Nat)`,
 `Decidable (x < 3)` and `Decidable (y < 5)`.
 
 Examples will be created in ascending order of size (more or less)

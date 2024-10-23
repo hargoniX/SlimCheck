@@ -19,7 +19,7 @@ This is a port of the Haskell QuickCheck library.
 
 The type classes `Testable`, `SampleableExt` and `Shrinkable` are the
 means by which `SlimCheck` creates samples and tests them. For instance,
-the proposition `∀ i j : ℕ, i ≤ j` has a `Testable` instance because `ℕ`
+the proposition `∀ i j : Nat, i ≤ j` has a `Testable` instance because `Nat`
 is sampleable and `i ≤ j` is decidable. Once `SlimCheck` finds the `Testable`
 instance, it can start using the instance to repeatedly creating samples
 and checking whether they satisfy the property. Once it has found a
@@ -33,8 +33,8 @@ Let us consider a type made for a new formalization:
 
 ```lean
 structure MyType where
-  x : ℕ
-  y : ℕ
+  x : Nat
+  y : Nat
   h : x ≤ y
   deriving Repr
 ```
@@ -46,31 +46,24 @@ of `Shrinkable MyType` and `SampleableExt MyType`. We can define one as follows:
 
 ```lean
 instance : Shrinkable MyType where
-  shrink := fun ⟨x,y,h⟩ ↦
+  shrink := fun ⟨x, y, _⟩ =>
     let proxy := Shrinkable.shrink (x, y - x)
-    proxy.map (fun ⟨⟨fst, snd⟩, ha⟩ ↦ ⟨⟨fst, fst + snd, sorry⟩, sorry⟩)
+    proxy.map (fun (fst, snd) => ⟨fst, fst + snd, by omega⟩)
 
 instance : SampleableExt MyType :=
   SampleableExt.mkSelfContained do
     let x ← SampleableExt.interpSample Nat
     let xyDiff ← SampleableExt.interpSample Nat
-    return ⟨x, x + xyDiff, sorry⟩
+    return ⟨x, x + xyDiff, by omega⟩
 ```
 
 Again, we take advantage of the fact that other types have useful
-`Shrinkable` implementations, in this case `Prod`. Note that the second
-proof is heavily based on `WellFoundedRelation` since it's used for termination so
-the first step you want to take is almost always to `simp_wf` in order to
-get through the `WellFoundedRelation`.
+`Shrinkable` implementations, in this case `Prod`.
 
 ## Main definitions
 
 * `Testable` class
 * `Testable.check`: a way to test a proposition using random examples
-
-## Tags
-
-random testing
 
 ## References
 
@@ -88,12 +81,12 @@ The constructors are:
   Without the proof, all we know is that we found one example
   where `p` holds. With a proof, the one test was sufficient to
   prove that `p` holds and we do not need to keep finding examples.
-* `gaveUp : ℕ → TestResult p`
+* `gaveUp : Nat → TestResult p`
   give up when a well-formed example cannot be generated.
   `gaveUp n` tells us that `n` invalid examples were tried.
   Above 100, we give up on the proposition and report that we
   did not find a way to properly test it.
-* `failure : ¬ p → (List String) → ℕ → TestResult p`
+* `failure : ¬ p → (List String) → Nat → TestResult p`
   a counter-example to `p`; the strings specify values for the relevant variables.
   `failure h vs n` also carries a proof that `p` does not hold. This way, we can
   guarantee that there will be no false positive. The last component, `n`,
@@ -169,8 +162,8 @@ def combine {p q : Prop} : Unit ⊕' (p → q) → Unit ⊕' p → Unit ⊕' q
 
 /-- Combine the test result for properties `p` and `q` to create a test for their conjunction. -/
 def and : TestResult p → TestResult q → TestResult (p ∧ q)
-  | failure h xs n, _ => failure (fun h2 ↦ h h2.left) xs n
-  | _, failure h xs n => failure (fun h2 ↦ h h2.right) xs n
+  | failure h xs n, _ => failure (fun h2 => h h2.left) xs n
+  | _, failure h xs n => failure (fun h2 => h h2.right) xs n
   | success h1, success h2 => success <| combine (combine (PSum.inr And.intro) h1) h2
   | gaveUp n, gaveUp m => gaveUp <| n + m
   | gaveUp n, _ => gaveUp n
@@ -179,7 +172,7 @@ def and : TestResult p → TestResult q → TestResult (p ∧ q)
 /-- Combine the test result for properties `p` and `q` to create a test for their disjunction. -/
 def or : TestResult p → TestResult q → TestResult (p ∨ q)
   | failure h1 xs n, failure h2 ys m =>
-    let h3 := fun h ↦
+    let h3 := fun h =>
       match h with
       | Or.inl h3 => h1 h3
       | Or.inr h3 => h2 h3
@@ -243,16 +236,16 @@ def runProp (p : Prop) [Testable p] : Configuration → Bool → Gen (TestResult
 
 /-- A `dbgTrace` with special formatting -/
 def slimTrace {m : Type → Type _} [Pure m] (s : String) : m PUnit :=
-  dbgTrace s!"[SlimCheck: {s}]" (fun _ ↦ pure ())
+  dbgTrace s!"[SlimCheck: {s}]" (fun _ => pure ())
 
 instance andTestable [Testable p] [Testable q] : Testable (p ∧ q) where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     let xp ← runProp p cfg min
     let xq ← runProp q cfg min
     return and xp xq
 
 instance orTestable [Testable p] [Testable q] : Testable (p ∨ q) where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     let xp ← runProp p cfg min
     -- As a little performance optimization we can just not run the second
     -- test if the first succeeds
@@ -264,7 +257,7 @@ instance orTestable [Testable p] [Testable q] : Testable (p ∨ q) where
       return or xp xq
 
 instance iffTestable [Testable ((p ∧ q) ∨ (¬ p ∧ ¬ q))] : Testable (p ↔ q) where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     let h ← runProp ((p ∧ q) ∨ (¬ p ∧ ¬ q)) cfg min
     have := by
       constructor
@@ -278,13 +271,13 @@ variable {var : String}
 
 instance decGuardTestable [PrintableProp p] [Decidable p] {β : p → Prop} [∀ h, Testable (β h)] :
     Testable (NamedBinder var <| ∀ h, β h) where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     if h : p then
       let res := runProp (β h) cfg min
       let s := printProp p
-      (fun r ↦ addInfo s!"guard: {s}" (· <| h) r (PSum.inr <| fun q _ ↦ q)) <$> res
+      (fun r => addInfo s!"guard: {s}" (· <| h) r (PSum.inr <| fun q _ => q)) <$> res
     else if cfg.traceDiscarded || cfg.traceSuccesses then
-      let res := fun _ ↦ return gaveUp 1
+      let res := fun _ => return gaveUp 1
       let s := printProp p
       slimTrace s!"discard: Guard {s} does not hold"; res
     else
@@ -292,9 +285,9 @@ instance decGuardTestable [PrintableProp p] [Decidable p] {β : p → Prop} [∀
 
 instance forallTypesTestable {f : Type → Prop} [Testable (f Int)] :
     Testable (NamedBinder var <| ∀ x, f x) where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     let r ← runProp (f Int) cfg min
-    return addVarInfo var "ℤ" (· <| Int) r
+    return addVarInfo var "Int" (· <| Int) r
 
 /--
 Format the counter-examples found in a test failure.
@@ -363,7 +356,7 @@ def minimize [SampleableExt α] {β : α → Prop} [∀ x, Testable (β x)] (cfg
 bound variable with it. -/
 instance varTestable [SampleableExt α] {β : α → Prop} [∀ x, Testable (β x)] :
     Testable (NamedBinder var <| ∀ x : α, β x) where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     let x ← SampleableExt.sample
     if cfg.traceSuccesses || cfg.traceDiscarded then
       slimTrace s!"{var} := {repr x}"
@@ -384,18 +377,18 @@ instance varTestable [SampleableExt α] {β : α → Prop} [∀ x, Testable (β 
 instance propVarTestable {β : Prop → Prop} [∀ b : Bool, Testable (β b)] :
   Testable (NamedBinder var <| ∀ p : Prop, β p)
 where
-  run := fun cfg min ↦
-    imp (fun h (b : Bool) ↦ h b) <$> Testable.runProp (NamedBinder var <| ∀ b : Bool, β b) cfg min
+  run := fun cfg min =>
+    imp (fun h (b : Bool) => h b) <$> Testable.runProp (NamedBinder var <| ∀ b : Bool, β b) cfg min
 
 instance (priority := high) unusedVarTestable {β : Prop} [Nonempty α] [Testable β] :
   Testable (NamedBinder var (α → β))
 where
-  run := fun cfg min ↦ do
+  run := fun cfg min => do
     if cfg.traceDiscarded || cfg.traceSuccesses then
       slimTrace s!"{var} is unused"
     let r ← Testable.runProp β cfg min
     let finalR := addInfo s!"{var} is irrelevant (unused)" id r
-    return imp (· <| Classical.ofNonempty) finalR (PSum.inr <| fun x _ ↦ x)
+    return imp (· <| Classical.ofNonempty) finalR (PSum.inr <| fun x _ => x)
 
 instance (priority := 2000) subtypeVarTestable {p : α → Prop} {β : α → Prop}
     [∀ x, PrintableProp (p x)]
@@ -404,7 +397,7 @@ instance (priority := 2000) subtypeVarTestable {p : α → Prop} {β : α → Pr
     Testable (NamedBinder var <| (x : α) → NamedBinder var' <| p x → β x) where
   run cfg min :=
     letI (x : Subtype p) : Testable (β x) :=
-      { run := fun cfg min ↦ do
+      { run := fun cfg min => do
           let r ← Testable.runProp (β x.val) cfg min
           return addInfo s!"guard: {printProp (p x)} (by construction)" id r (PSum.inr id) }
     do
@@ -414,7 +407,7 @@ instance (priority := 2000) subtypeVarTestable {p : α → Prop} {β : α → Pr
 
 instance (priority := low) decidableTestable {p : Prop} [PrintableProp p] [Decidable p] :
     Testable p where
-  run := fun _ _ ↦
+  run := fun _ _ =>
     if h : p then
       return success (PSum.inr h)
     else

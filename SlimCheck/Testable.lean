@@ -581,13 +581,17 @@ open Decorations in
 def Testable.check (p : Prop) (cfg : Configuration := {})
     (p' : Decorations.DecorationsOf p := by mk_decorations) [Testable p'] : Lean.CoreM PUnit := do
   match ← Testable.checkIO p' cfg with
-  | TestResult.success _ => if !cfg.quiet then Lean.logInfo "Success"
-  | TestResult.gaveUp n => if !cfg.quiet then Lean.logWarning s!"Gave up {n} times"
+  | TestResult.success _ => if !cfg.quiet then Lean.logInfo "Unable to find a counter-example"
+  | TestResult.gaveUp n =>
+    if !cfg.quiet then
+      let msg := s!"Gave up after failing to generate values that fulfill the preconditions {n} times."
+      Lean.logWarning msg
   | TestResult.failure _ xs n =>
+    let msg := "Found a counter-example!"
     if cfg.quiet then
-      Lean.throwError "Found problems!"
+      Lean.throwError msg
     else
-      Lean.throwError <| formatFailure "Found problems!" xs n
+      Lean.throwError <| formatFailure msg xs n
 
 -- #eval Testable.check (∀ (x y z a : Nat) (h1 : 3 < x) (h2 : 3 < y), x - y = y - x)
 --   Configuration.verbose

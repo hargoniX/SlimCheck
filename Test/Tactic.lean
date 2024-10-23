@@ -3,7 +3,7 @@ Copyright (c) 2024 Lean FRO, LLC. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Henrik Böving
 -/
-import SlimCheck.Tactic
+import SlimCheck
 
 /-!
 Demonstrate that SlimCheck can handle the basic types from core:
@@ -111,4 +111,9 @@ example (xs ys : String) : xs.length = ys.length → xs = ys := by
 /-- error: Found problems! -/
 #guard_msgs in
 example (xs ys : Array Nat) : xs.size = ys.size → xs = ys := by
+  slim_check (config := {quiet := true})
+
+/-- error: Found problems! -/
+#guard_msgs in
+example (xs : List Int) (f : Int → Int) : xs.map f = xs := by
   slim_check (config := {quiet := true})

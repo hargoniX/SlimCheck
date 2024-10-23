@@ -73,41 +73,64 @@ Again, we take advantage of the fact that other types have useful
 
 namespace SlimCheck
 
-/-- Result of trying to disprove `p`
-The constructors are:
-* `success : (Unit ⊕' p) → TestResult p`
-  succeed when we find another example satisfying `p`
+/-- Result of trying to disprove `p` -/
+inductive TestResult (p : Prop) where
+  /--
+  Succeed when we find another example satisfying `p`.
   In `success h`, `h` is an optional proof of the proposition.
   Without the proof, all we know is that we found one example
   where `p` holds. With a proof, the one test was sufficient to
   prove that `p` holds and we do not need to keep finding examples.
-* `gaveUp : Nat → TestResult p`
-  give up when a well-formed example cannot be generated.
+  -/
+  | success : Unit ⊕' p → TestResult p
+  /--
+  Give up when a well-formed example cannot be generated.
   `gaveUp n` tells us that `n` invalid examples were tried.
-  Above 100, we give up on the proposition and report that we
-  did not find a way to properly test it.
-* `failure : ¬ p → (List String) → Nat → TestResult p`
-  a counter-example to `p`; the strings specify values for the relevant variables.
+  -/
+  | gaveUp : Nat → TestResult p
+  /--
+  A counter-example to `p`; the strings specify values for the relevant variables.
   `failure h vs n` also carries a proof that `p` does not hold. This way, we can
   guarantee that there will be no false positive. The last component, `n`,
   is the number of times that the counter-example was shrunk.
--/
-inductive TestResult (p : Prop) where
-  | success : Unit ⊕' p → TestResult p
-  | gaveUp : Nat → TestResult p
+  -/
   | failure : ¬ p → List String → Nat → TestResult p
   deriving Inhabited
 
 /-- Configuration for testing a property. -/
 structure Configuration where
+  /--
+  How many test instances to generate.
+  -/
   numInst : Nat := 100
+  /--
+  The maximum size of the values to generate.
+  -/
   maxSize : Nat := 100
   numRetries : Nat := 10
+  /--
+  Enable tracing of values that didn't fulfill preconditions and were thus discarded.
+  -/
   traceDiscarded : Bool := false
+  /--
+  Enable tracing of values that fulfilled the property and were thus discarded.
+  -/
   traceSuccesses : Bool := false
+  /--
+  Enable basic tracing of shrinking.
+  -/
   traceShrink : Bool := false
+  /--
+  Enable tracing of all attempted values during shrinking.
+  -/
   traceShrinkCandidates : Bool := false
+  /--
+  Hard code the seed to use for the RNG
+  -/
   randomSeed : Option Nat := none
+  /--
+  Disable output.
+  -/
   quiet : Bool := false
   deriving Inhabited
 
@@ -463,15 +486,15 @@ end PrintableProp
 section IO
 open TestResult
 
-/-- Execute `cmd` and repeat every time the result is `gave_up` (at most `n` times). -/
+/-- Execute `cmd` and repeat every time the result is `gaveUp` (at most `n` times). -/
 def retry (cmd : Rand (TestResult p)) : Nat → Rand (TestResult p)
   | 0 => return TestResult.gaveUp 1
   | n+1 => do
     let r ← cmd
     match r with
-    | success hp => return success hp
-    | TestResult.failure h xs n => return failure h xs n
-    | gaveUp _ => retry cmd n
+    | .success hp => return success hp
+    | .failure h xs n => return failure h xs n
+    | .gaveUp _ => retry cmd n
 
 /-- Count the number of times the test procedure gave up. -/
 def giveUp (x : Nat) : TestResult p → TestResult p
@@ -483,17 +506,17 @@ def giveUp (x : Nat) : TestResult p → TestResult p
 /-- Try `n` times to find a counter-example for `p`. -/
 def Testable.runSuiteAux (p : Prop) [Testable p] (cfg : Configuration) :
     TestResult p → Nat → Rand (TestResult p)
-| r, 0 => pure r
-| r, n+1 => do
-  let size := (cfg.numInst - n - 1) * cfg.maxSize / cfg.numInst
-  if cfg.traceSuccesses then
-    slimTrace s!"New sample"
-    slimTrace s!"Retrying up to {cfg.numRetries} times until guards hold"
-  let x ← retry (ReaderT.run (Testable.runProp p cfg true) ⟨size⟩) cfg.numRetries
-  match x with
-  | (success (PSum.inl ())) => runSuiteAux p cfg r n
-  | (gaveUp g) => runSuiteAux p cfg (giveUp g r) n
-  | _ => return x
+  | r, 0 => return r
+  | r, n+1 => do
+    let size := (cfg.numInst - n - 1) * cfg.maxSize / cfg.numInst
+    if cfg.traceSuccesses then
+      slimTrace s!"New sample"
+      slimTrace s!"Retrying up to {cfg.numRetries} times until guards hold"
+    let x ← retry (ReaderT.run (Testable.runProp p cfg true) ⟨size⟩) cfg.numRetries
+    match x with
+    | success (PSum.inl ()) => runSuiteAux p cfg r n
+    | gaveUp g => runSuiteAux p cfg (giveUp g r) n
+    | _ => return x
 
 /-- Try to find a counter-example of `p`. -/
 def Testable.runSuite (p : Prop) [Testable p] (cfg : Configuration := {}) : Rand (TestResult p) :=
